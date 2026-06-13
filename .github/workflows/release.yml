@@ -1,0 +1,128 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build homebrew-pypi-poet
+
+      - name: Compute release metadata
+        id: meta
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          TAG="${GITHUB_REF_NAME}"
+          TARBALL_URL="https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz"
+          curl -fsSL -o /tmp/source.tar.gz "${TARBALL_URL}"
+          SOURCE_SHA=$(shasum -a 256 /tmp/source.tar.gz | awk '{print $1}')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}"         >> "$GITHUB_OUTPUT"
+          echo "tarball_url=${TARBALL_URL}" >> "$GITHUB_OUTPUT"
+          echo "source_sha=${SOURCE_SHA}"   >> "$GITHUB_OUTPUT"
+
+      - name: Install dsmview into a venv (for poet)
+        run: |
+          python -m venv .poet-venv
+          . .poet-venv/bin/activate
+          pip install --upgrade pip
+          pip install .
+
+      - name: Generate Python resource blocks
+        id: poet
+        run: |
+          . .poet-venv/bin/activate
+          poet dsmview > resources.rb
+          echo "--- resources.rb ---"
+          cat resources.rb
+
+      - name: Render Formula/dsmview.rb
+        run: |
+          python <<'PY'
+          import re, pathlib
+          version = "${{ steps.meta.outputs.version }}"
+          tag = "${{ steps.meta.outputs.tag }}"
+          url = "${{ steps.meta.outputs.tarball_url }}"
+          src_sha = "${{ steps.meta.outputs.source_sha }}"
+          resources = pathlib.Path("resources.rb").read_text().rstrip() + "\n"
+
+          formula = f'''class Dsmview < Formula
+            include Language::Python::Virtualenv
+
+            desc "TUI SSH monitor for Synology DSM 7.x"
+            homepage "https://github.com/janvete/dsmview"
+            url "{url}"
+            sha256 "{src_sha}"
+            license "MIT"
+            head "https://github.com/janvete/dsmview.git", branch: "main"
+
+            depends_on "python@3.12"
+            depends_on "rust" => :build
+
+          {resources}
+            def install
+              virtualenv_install_with_resources
+            end
+
+            test do
+              assert_match "dsmview", shell_output("#{{bin}}/dsmview --help")
+            end
+          end
+          '''
+          pathlib.Path("Formula/dsmview.rb").write_text(formula)
+          PY
+          cat Formula/dsmview.rb
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.meta.outputs.tag }}" \
+            --title "${{ steps.meta.outputs.tag }}" \
+            --generate-notes
+
+      - name: Push formula to tap repository
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/janvete/homebrew-dsmview.git" tap
+          cp Formula/dsmview.rb tap/Formula/dsmview.rb
+          cd tap
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          git add Formula/dsmview.rb
+          git commit -m "chore: bump dsmview to ${{ steps.meta.outputs.tag }}"
+          git push
+
+      - name: Commit updated formula back to source repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          git fetch origin main
+          git checkout main
+          cp Formula/dsmview.rb /tmp/dsmview.rb
+          git pull --rebase origin main || true
+          cp /tmp/dsmview.rb Formula/dsmview.rb
+          git add Formula/dsmview.rb
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: refresh formula for ${{ steps.meta.outputs.tag }}"
+            git push origin main
+          fi

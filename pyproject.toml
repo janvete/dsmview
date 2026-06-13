@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dsmview"
+version = "0.1.0"
+description = "TUI SSH monitor for Synology DSM 7.x"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [{ name = "Jan Vetesnik" }]
+keywords = ["synology", "dsm", "nas", "tui", "ssh", "monitoring"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console :: Curses",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "textual>=0.47.0",
+    "paramiko>=3.4.0",
+    "click>=8.1.0",
+    "plotext>=5.2.0",
+    "textual-plotext>=0.2.1",
+]
+
+[project.scripts]
+dsmview = "dsmview.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/janvete/dsmview"
+Repository = "https://github.com/janvete/dsmview"
+Issues = "https://github.com/janvete/dsmview/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dsmview"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/dsmview", "/README.md", "/LICENSE"]
