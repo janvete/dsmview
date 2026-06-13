@@ -67,7 +67,8 @@ class SystemCollector(Collector[SystemSnapshot]):
             "cat /proc/cpuinfo",
             "cat /proc/uptime",
             "cat /proc/sys/kernel/hostname",
-            "cat /etc/synoinfo.conf 2>/dev/null | grep -E '^(unique|productversion|buildnumber|upnpmodelname)='",
+            "cat /etc/VERSION 2>/dev/null",
+            "cat /etc/synoinfo.conf 2>/dev/null | grep -E '^(unique|upnpmodelname)='",
             "synotemperature 2>/dev/null || true",
         ]
         results = await self.executor.gather(cmds)
@@ -78,8 +79,9 @@ class SystemCollector(Collector[SystemSnapshot]):
         self._parse_cpuinfo(results[3].stdout, snap)
         self._parse_uptime(results[4].stdout, snap)
         snap.hostname = results[5].stdout.strip()
-        self._parse_synoinfo(results[6].stdout, snap)
-        self._parse_temp(results[7].stdout, snap)
+        self._parse_version(results[6].stdout, snap)
+        self._parse_synoinfo(results[7].stdout, snap)
+        self._parse_temp(results[8].stdout, snap)
         return snap
 
     @staticmethod
@@ -155,16 +157,30 @@ class SystemCollector(Collector[SystemSnapshot]):
                 pass
 
     @staticmethod
+    def _parse_version(text: str, snap: SystemSnapshot) -> None:
+        # /etc/VERSION is the authoritative source for productversion +
+        # buildnumber on DSM 7.x. synoinfo.conf may or may not have it.
+        product = ""
+        build = ""
+        for line in text.splitlines():
+            key, _, value = line.partition("=")
+            value = value.strip().strip('"')
+            if key == "productversion":
+                product = value
+            elif key == "buildnumber":
+                build = value
+        if product and build:
+            snap.dsm_version = f"{product}-{build}"
+        elif product:
+            snap.dsm_version = product
+
+    @staticmethod
     def _parse_synoinfo(text: str, snap: SystemSnapshot) -> None:
         for line in text.splitlines():
             key, _, value = line.partition("=")
             value = value.strip().strip('"')
             if key == "upnpmodelname":
                 snap.dsm_model = value
-            elif key == "productversion":
-                snap.dsm_version = value
-            elif key == "buildnumber" and snap.dsm_version:
-                snap.dsm_version = f"{snap.dsm_version}-{value}"
 
     @staticmethod
     def _parse_temp(text: str, snap: SystemSnapshot) -> None:

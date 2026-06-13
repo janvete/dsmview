@@ -27,11 +27,6 @@ Screen {{
     color: {BORDER_TITLE};
 }}
 
-Header {{
-    background: {BG};
-    color: {BORDER_TITLE};
-}}
-
 Footer {{
     background: {BG};
     color: {BORDER_TITLE};
@@ -68,96 +63,29 @@ Tab.-active {{
     background: {BG};
     color: {BORDER_TITLE};
     padding: 0 1;
+    margin-bottom: 1;
+    height: auto;
 }}
 
-.panel > .panel-title {{
+.panel > Static.panel-title {{
     color: {BORDER_TITLE};
     text-style: bold;
+    height: 1;
 }}
 
-.meter-cpu Bar > .bar--bar {{
-    color: {CPU_BAR};
-}}
-
-.meter-mem Bar > .bar--bar {{
-    color: {MEM_BAR};
-}}
-
-.meter-disk Bar > .bar--bar {{
-    color: {DISK_BAR};
-}}
-
-.severity-error {{
-    color: {LOG_ERROR};
-}}
-
-.severity-warn {{
-    color: {LOG_WARN};
-}}
-
-.severity-info {{
-    color: {LOG_INFO};
-}}
-
-.severity-security {{
-    color: {LOG_SECURITY};
-}}
-
-.svc-running {{
-    color: {OK};
-}}
-
-.svc-stopped {{
-    color: {STOPPED};
+#net-graphs {{
+    height: 5;
 }}
 
 DataTable {{
     background: {BG};
     color: {BORDER_TITLE};
+    height: auto;
 }}
 
 DataTable > .datatable--header {{
     background: {BG};
     color: {BORDER_TITLE};
-    text-style: bold;
-}}
-
-DataTable > .datatable--cursor {{
-    background: {BORDER};
-    color: {BG};
-}}
-
-#dashboard-grid {{
-    layout: grid;
-    grid-size: 2 3;
-    grid-columns: 1fr 1fr;
-    grid-rows: 1fr 1fr auto;
-    grid-gutter: 0;
-}}
-
-#cpu-panel, #mem-panel, #storage-panel, #net-panel, #services-row, #logs-row {{
-    height: 100%;
-    width: 100%;
-}}
-
-#services-row, #logs-row {{
-    column-span: 2;
-}}
-
-ConfirmDialog {{
-    align: center middle;
-}}
-
-ConfirmDialog > #dialog {{
-    width: 60;
-    height: 9;
-    background: {BG};
-    border: round {WARNING};
-    padding: 1 2;
-}}
-
-ConfirmDialog #dialog-title {{
-    color: {WARNING};
     text-style: bold;
 }}
 """
