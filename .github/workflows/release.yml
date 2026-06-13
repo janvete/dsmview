@@ -38,13 +38,58 @@ jobs:
           python -m venv .poet-venv
           . .poet-venv/bin/activate
           pip install --upgrade pip
-          # homebrew-pypi-poet (last released 2018) still imports pkg_resources,
-          # which setuptools >=81 no longer bundles. Pin to a setuptools that
-          # still ships it.
-          pip install 'setuptools<70' wheel
-          pip install homebrew-pypi-poet .
-          python -c "import pkg_resources; print('pkg_resources OK:', pkg_resources.__file__)"
-          poet dsmview > resources.rb
+          pip install .
+          python <<'PY' > resources.rb
+          # Walk every installed package in the venv (excluding pip/setuptools/
+          # wheel and the project itself), fetch sdist URL + sha256 from PyPI,
+          # and emit Homebrew `resource` blocks. Replaces homebrew-pypi-poet,
+          # which is unmaintained (2018) and breaks on modern setuptools and
+          # PyPI URL changes.
+          import json, sys, urllib.request
+          from importlib.metadata import distributions
+
+          SKIP = {"pip", "setuptools", "wheel", "dsmview"}
+
+          def fetch(name: str) -> dict:
+              url = f"https://pypi.org/pypi/{name}/json"
+              with urllib.request.urlopen(url, timeout=20) as r:
+                  return json.load(r)
+
+          def sdist(releases: list) -> dict | None:
+              for f in releases:
+                  if f.get("packagetype") == "sdist":
+                      return f
+              return None
+
+          def block(name: str, version: str, url: str, sha: str) -> str:
+              return (
+                  f'  resource "{name}" do\n'
+                  f'    url "{url}"\n'
+                  f'    sha256 "{sha}"\n'
+                  f'  end\n'
+              )
+
+          packages = sorted(
+              (d.metadata["Name"], d.version)
+              for d in distributions()
+              if d.metadata["Name"].lower() not in SKIP
+          )
+          out = []
+          missing = []
+          for name, version in packages:
+              data = fetch(name)
+              files = data.get("releases", {}).get(version, [])
+              s = sdist(files)
+              if s is None:
+                  print(f"ERROR: no sdist for {name} {version}", file=sys.stderr)
+                  missing.append(f"{name}=={version}")
+                  continue
+              out.append(block(name, version, s["url"], s["digests"]["sha256"]))
+          sys.stdout.write("\n".join(out))
+          if missing:
+              print(f"missing sdists: {missing}", file=sys.stderr)
+              sys.exit(1)
+          PY
           echo "--- resources.rb ---"
           cat resources.rb
 
