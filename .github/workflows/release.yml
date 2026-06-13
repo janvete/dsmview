@@ -19,11 +19,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install build tooling
-        run: |
-          python -m pip install --upgrade pip
-          pip install build homebrew-pypi-poet
-
       - name: Compute release metadata
         id: meta
         run: |
@@ -37,17 +32,13 @@ jobs:
           echo "tarball_url=${TARBALL_URL}" >> "$GITHUB_OUTPUT"
           echo "source_sha=${SOURCE_SHA}"   >> "$GITHUB_OUTPUT"
 
-      - name: Install dsmview into a venv (for poet)
-        run: |
-          python -m venv .poet-venv
-          . .poet-venv/bin/activate
-          pip install --upgrade pip
-          pip install .
-
       - name: Generate Python resource blocks
         id: poet
         run: |
+          python -m venv .poet-venv
           . .poet-venv/bin/activate
+          pip install --upgrade pip setuptools wheel
+          pip install homebrew-pypi-poet .
           poet dsmview > resources.rb
           echo "--- resources.rb ---"
           cat resources.rb
