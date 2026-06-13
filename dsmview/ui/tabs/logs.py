@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import deque
 from typing import Deque
 
+from rich.markup import escape
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import RichLog, Static
@@ -66,8 +67,11 @@ class LogsTab(Container):
             Severity.OTHER: theme.BORDER_TITLE,
         }
         color = color_for[line.severity]
+        # Raw log lines often contain literal brackets like
+        # `[/path/to/file]` which Rich's markup parser tries to interpret
+        # as closing tags. Escape so they render as text.
         src = f"[dim]{line.source:<8}[/]"
-        return f"{src} [{color}]{line.raw}[/]"
+        return f"{src} [{color}]{escape(line.raw)}[/]"
 
     def _rerender(self) -> None:
         self.log_view.clear()
