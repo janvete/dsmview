@@ -3,7 +3,7 @@
 TUI SSH monitor for Synology DSM 7.x — read-only dashboard inspired by `btop`.
 
 ```
-brew tap janvete/dsmview
+brew tap janvete/tools
 brew install dsmview
 ```
 

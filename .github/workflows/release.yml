@@ -101,7 +101,7 @@ jobs:
         env:
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
         run: |
-          git clone "https://x-access-token:${TAP_TOKEN}@github.com/janvete/homebrew-dsmview.git" tap
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/janvete/homebrew-tools.git" tap
           cp Formula/dsmview.rb tap/Formula/dsmview.rb
           cd tap
           git config user.email "github-actions[bot]@users.noreply.github.com"
