@@ -137,11 +137,22 @@ class DashboardTab(VerticalScroll):
             return
         self.net_rx_graph.push(primary.rx_bps)
         self.net_tx_graph.push(primary.tx_bps)
-        self.net_summary.update(
-            f"  [bold]{primary.iface}[/]   "
-            f"[{theme.NET_DOWN}]↓ {_fmt_bytes_per_sec(primary.rx_bps)}[/]   "
-            f"[{theme.NET_UP}]↑ {_fmt_bytes_per_sec(primary.tx_bps)}[/]"
-        )
+        # One line per interface so multi-NIC setups (LACP, OvS, Tailscale)
+        # are visible. The primary is highlighted because the graph
+        # underneath tracks it.
+        max_name = max((len(s.iface) for s in s.samples), default=8)
+        max_ip = max((len(s.ip) for s in s.samples), default=0)
+        lines = []
+        for sample in s.samples:
+            iface = sample.iface.ljust(max_name)
+            ip = (sample.ip or "—").ljust(max_ip if max_ip else 1)
+            tag = "[bold]●[/]" if sample is primary else " "
+            lines.append(
+                f"  {tag} [bold]{iface}[/]  [grey70]{ip}[/]   "
+                f"[{theme.NET_DOWN}]↓ {_fmt_bytes_per_sec(sample.rx_bps)}[/]   "
+                f"[{theme.NET_UP}]↑ {_fmt_bytes_per_sec(sample.tx_bps)}[/]"
+            )
+        self.net_summary.update("\n".join(lines))
 
     SERVICES_LIMIT = 30
 

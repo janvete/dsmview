@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import List
 
 from dsmview.collectors.base import Collector
+
+_VOLUME_RE = re.compile(r"^/volume\d+$")
 
 
 @dataclass(slots=True)
@@ -51,9 +54,10 @@ class StorageCollector(Collector[StorageSnapshot]):
             if len(parts) < 6:
                 continue
             device, size, used, avail, pct, mount = parts[:6]
-            # Only show user-facing data volumes. /, /tmp/* and friends
-            # are noise on Synology — they're the DSM system partition.
-            if not mount.startswith("/volume"):
+            # Only show actual storage pools — /volume1, /volume2, etc.
+            # Container Manager bind-mounts (/volume1/@appdata/...) and
+            # system mounts repeat the same usage and just add noise.
+            if not _VOLUME_RE.match(mount):
                 continue
             if device in ("tmpfs", "devtmpfs", "overlay", "none"):
                 continue
