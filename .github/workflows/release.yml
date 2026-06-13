@@ -155,11 +155,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Stash the newly rendered formula before switching branches —
+          # otherwise `git checkout main` aborts when the working-tree
+          # formula differs from main's committed version.
+          cp Formula/dsmview.rb /tmp/dsmview.rb
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name  "github-actions[bot]"
           git fetch origin main
-          git checkout main
-          cp Formula/dsmview.rb /tmp/dsmview.rb
+          git checkout -f main
           git pull --rebase origin main || true
           cp /tmp/dsmview.rb Formula/dsmview.rb
           git add Formula/dsmview.rb
