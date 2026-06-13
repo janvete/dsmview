@@ -51,7 +51,9 @@ class StorageCollector(Collector[StorageSnapshot]):
             if len(parts) < 6:
                 continue
             device, size, used, avail, pct, mount = parts[:6]
-            if not mount.startswith("/volume") and not mount.startswith("/"):
+            # Only show user-facing data volumes. /, /tmp/* and friends
+            # are noise on Synology — they're the DSM system partition.
+            if not mount.startswith("/volume"):
                 continue
             if device in ("tmpfs", "devtmpfs", "overlay", "none"):
                 continue

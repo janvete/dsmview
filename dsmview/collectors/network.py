@@ -28,10 +28,17 @@ class NetworkSnapshot:
     samples: List[NetSample] = field(default_factory=list)
 
     def primary(self) -> Optional[NetSample]:
+        # Pick the interface with the most total traffic. Falls back to
+        # eth0-style names when no counters have accumulated yet.
+        if not self.samples:
+            return None
+        with_traffic = [s for s in self.samples if (s.rx_total + s.tx_total) > 0]
+        if with_traffic:
+            return max(with_traffic, key=lambda s: s.rx_total + s.tx_total)
         for s in self.samples:
-            if s.iface in ("eth0", "ovs_eth0", "bond0"):
+            if s.iface in ("eth0", "eth1", "ovs_eth0", "bond0"):
                 return s
-        return self.samples[0] if self.samples else None
+        return self.samples[0]
 
 
 class NetworkCollector(Collector[NetworkSnapshot]):

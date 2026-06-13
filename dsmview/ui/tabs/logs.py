@@ -4,8 +4,7 @@ from collections import deque
 from typing import Deque
 
 from textual.app import ComposeResult
-from textual.binding import Binding
-from textual.containers import Container, Horizontal
+from textual.containers import Container
 from textual.widgets import RichLog, Static
 
 from dsmview.collectors.logs import LogLine, Severity
@@ -16,13 +15,9 @@ _MAX_LINES = 2000
 
 
 class LogsTab(Container):
-    BINDINGS = [
-        Binding("a", "filter('ALL')", "ALL", show=False),
-        Binding("1", "filter('ERROR')", "ERROR", show=False),
-        Binding("2", "filter('WARN')", "WARN", show=False),
-        Binding("3", "filter('SECURITY')", "SECURITY", show=False),
-        Binding("4", "filter('INFO')", "INFO", show=False),
-    ]
+    """Live log tail with severity filter. The filter keys (a / 1-4) are
+    bound at the App level — pressing them anywhere switches to this tab
+    and applies the filter."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -31,13 +26,19 @@ class LogsTab(Container):
 
     def compose(self) -> ComposeResult:
         with Container(classes="panel"):
-            yield Static("LOGS — [A]ll  [1]Err  [2]Warn  [3]Sec  [4]Info", classes="panel-title", id="logs-header")
+            yield Static(
+                "LOGS — [A]LL  [1]ERROR  [2]WARN  [3]SECURITY  [4]INFO",
+                classes="panel-title",
+                id="logs-header",
+            )
             self.status_bar = Static("filter: ALL", id="logs-status")
             yield self.status_bar
-            self.log_view = RichLog(highlight=False, markup=True, wrap=False, max_lines=_MAX_LINES, id="logs-view")
+            self.log_view = RichLog(
+                highlight=False, markup=True, wrap=False, max_lines=_MAX_LINES, id="logs-view"
+            )
             yield self.log_view
 
-    def action_filter(self, name: str) -> None:
+    def set_filter(self, name: str) -> None:
         self._filter = name
         self.status_bar.update(f"filter: {name}")
         self._rerender()

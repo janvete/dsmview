@@ -1,19 +1,16 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import List
 
 from dsmview.collectors.base import Collector
-
-_STATUS_RE = re.compile(r"\b(is\s+running|is\s+stopped|start/running|stop/waiting)\b", re.IGNORECASE)
 
 
 @dataclass(slots=True)
 class ServiceInfo:
     name: str
     running: bool = False
-    status_text: str = ""
+    description: str = ""
 
 
 @dataclass(slots=True)
@@ -21,52 +18,58 @@ class ServicesSnapshot:
     services: List[ServiceInfo] = field(default_factory=list)
 
 
+# Names worth surfacing in the compact dashboard view.
+INTERESTING = {
+    "smbd", "smb", "nmbd", "nginx", "sshd", "nfsd", "ftpd",
+    "avahi-daemon", "crond", "chronyd", "synoindexd", "findhostd",
+    "synocachefs", "synonetd", "synopkg", "synowebapi",
+    "pgsql", "synologdbd",
+}
+
+
 class ServicesCollector(Collector[ServicesSnapshot]):
+    """Lists systemd services with running status.
+
+    Synology DSM 7.x uses systemd. Older `synoservicectl` / `synosystemctl`
+    are absent on recent DSM builds, so we go straight to `systemctl`.
+    """
+
     name = "services"
 
-    DEFAULT_SERVICES = (
-        "smbd", "nmbd", "nginx", "sshd", "nfsd", "ftpd",
-        "avahi-daemon", "crond", "synoindexd",
-        "pkgctl-HyperBackup", "pkgctl-ActiveBackup", "pkgctl-CloudSync",
-        "pkgctl-MariaDB10", "pkgctl-ContainerManager",
-    )
-
     async def collect(self) -> ServicesSnapshot:
-        listing = await self.executor.run("synoservicectl --list 2>/dev/null || true")
-        names = self._parse_list(listing.stdout)
-        if not names:
-            names = list(self.DEFAULT_SERVICES)
-
-        cmds = [f"synoservicectl --status {n} 2>&1 || true" for n in names]
-        results = await self.executor.gather(cmds, timeout=15.0)
-        snap = ServicesSnapshot()
-        for name, res in zip(names, results):
-            info = ServiceInfo(name=name, status_text=res.stdout.strip())
-            running = self._is_running(res.stdout)
-            info.running = running
-            snap.services.append(info)
-        return snap
+        # --no-legend keeps the table machine-parseable; --plain removes
+        # the unicode tree characters that some systemd versions emit.
+        result = await self.executor.run(
+            "systemctl list-units --type=service --all --no-legend --no-pager --plain 2>/dev/null || true",
+            timeout=10.0,
+        )
+        services = self._parse(result.stdout)
+        return ServicesSnapshot(services=services)
 
     @staticmethod
-    def _parse_list(text: str) -> List[str]:
-        out: List[str] = []
+    def _parse(text: str) -> List[ServiceInfo]:
+        out: List[ServiceInfo] = []
         for line in text.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
+            parts = line.split(None, 4)
+            if len(parts) < 4:
                 continue
-            for token in line.split():
-                if token and token[0].isalpha() and "/" not in token:
-                    out.append(token)
-        seen: dict[str, None] = {}
-        for n in out:
-            seen[n] = None
-        return list(seen.keys())
-
-    @staticmethod
-    def _is_running(text: str) -> bool:
-        low = text.lower()
-        if "is running" in low or "start/running" in low:
-            return True
-        if "is stopped" in low or "stop/waiting" in low:
-            return False
-        return "running" in low and "not" not in low
+            unit = parts[0]
+            # systemctl marks failed/loaded/not-found in column 2; we want
+            # the SUB state in column 4 (running/dead/exited/etc).
+            sub_state = parts[3]
+            desc = parts[4] if len(parts) > 4 else ""
+            if not unit.endswith(".service"):
+                continue
+            name = unit[: -len(".service")]
+            # Strip pkg- prefix DSM uses for package-installed services so
+            # smbd shows as smbd, not pkg-smbd.
+            display = name[4:] if name.startswith("pkg-") else name
+            running = sub_state == "running"
+            out.append(ServiceInfo(name=display, running=running, description=desc.strip().strip('"')))
+        # Sort: interesting services first, then running ones, then the rest.
+        def sort_key(s: ServiceInfo) -> tuple:
+            interesting = 0 if s.name in INTERESTING else 1
+            running = 0 if s.running else 1
+            return (interesting, running, s.name)
+        out.sort(key=sort_key)
+        return out
