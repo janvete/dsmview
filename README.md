@@ -29,20 +29,27 @@ service — and that requires explicit confirmation in the UI.
 ## Tabs
 
 - **F1 Dashboard** — CPU history graph, memory, storage pools, network
-  throughput, load average, temperatures.
-- **F2 Logs** — live tail of `/var/log/messages` and `/var/log/auth.log`
-  with severity filters (ALL / ERROR / WARN / SECURITY / INFO).
-- **F3 Services** — `synoservicectl --list` table with up/down status and
-  restart/stop/start actions.
-- **F4 Disks** — per-disk model/size/temp/health from `smartctl` plus RAID
-  status from `/proc/mdstat`.
+  throughput, load average, temperatures, services summary and disk health.
+- **F2 Logs** — live tail of system, auth and package logs (including
+  Active Backup) with severity filters and text search.
+- **F3 Services** — `systemctl` service list with up/down status and
+  start/stop/restart actions.
 
 ## Keys
 
 ```
-F1..F4  switch tab
-r       refresh now
-q       quit
+F1..F3       switch tab
+r            refresh now
+q            quit
+/            focus log search
+ESC          clear log search
+Logs tab:
+  a / 1-4    severity filter (All / Error / Warn / Security / Info)
+Services tab:
+  ↑/↓        select service
+  s          start
+  S          stop
+  R          restart
 ```
 
 ## Requirements

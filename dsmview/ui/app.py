@@ -18,7 +18,7 @@ from dsmview.collectors import (
 from dsmview.ssh.connection import NasConnection
 from dsmview.ssh.executor import Executor
 from dsmview.ui import theme
-from dsmview.ui.tabs import DashboardTab, LogsTab
+from dsmview.ui.tabs import DashboardTab, LogsTab, ServicesTab
 
 
 # Three refresh tiers — fast for live metrics, medium for storage/services,
@@ -37,11 +37,17 @@ class DsmviewApp(App):
         Binding("r", "refresh_now", "Refresh"),
         Binding("f1", "switch_tab('dashboard')", "Dash"),
         Binding("f2", "switch_tab('logs')", "Logs"),
+        Binding("f3", "switch_tab('services')", "Services"),
         Binding("a", "filter('ALL')", "All", show=False),
         Binding("1", "filter('ERROR')", "Err", show=False),
         Binding("2", "filter('WARN')", "Warn", show=False),
         Binding("3", "filter('SECURITY')", "Sec", show=False),
         Binding("4", "filter('INFO')", "Info", show=False),
+        Binding("/", "focus_search", "Search", show=False),
+        Binding("escape", "clear_search", "ClearSearch", show=False),
+        Binding("s", "start_service", "Start", show=False),
+        Binding("S", "stop_service", "Stop", show=False),
+        Binding("R", "restart_service", "Restart", show=False),
     ]
 
     def __init__(self, connection: NasConnection) -> None:
@@ -67,6 +73,9 @@ class DsmviewApp(App):
             with TabPane("F2 Logs", id="logs"):
                 self.logs_tab = LogsTab()
                 yield self.logs_tab
+            with TabPane("F3 Services", id="services"):
+                self.services_tab = ServicesTab(self.executor)
+                yield self.services_tab
         yield Footer()
 
     def on_mount(self) -> None:
@@ -93,6 +102,28 @@ class DsmviewApp(App):
     def action_filter(self, name: str) -> None:
         self.query_one(TabbedContent).active = "logs"
         self.logs_tab.set_filter(name)
+
+    def action_focus_search(self) -> None:
+        self.query_one(TabbedContent).active = "logs"
+        self.logs_tab.show_search()
+
+    def action_clear_search(self) -> None:
+        self.logs_tab.hide_search()
+
+    def _on_services_tab(self, action_name: str) -> None:
+        active = self.query_one(TabbedContent).active
+        if active != "services":
+            return
+        getattr(self.services_tab, action_name)()
+
+    def action_start_service(self) -> None:
+        self._on_services_tab("action_start_service")
+
+    def action_stop_service(self) -> None:
+        self._on_services_tab("action_stop_service")
+
+    def action_restart_service(self) -> None:
+        self._on_services_tab("action_restart_service")
 
     def action_refresh_now(self) -> None:
         self._tick_fast()
@@ -133,6 +164,7 @@ class DsmviewApp(App):
             return
         self.dashboard.update_storage(storage_snap)
         self.dashboard.update_services(services_snap.services)
+        self.services_tab.update(services_snap.services)
 
     async def _refresh_slow(self) -> None:
         try:

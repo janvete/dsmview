@@ -8,7 +8,10 @@ from dsmview.collectors.base import Collector
 
 @dataclass(slots=True)
 class ServiceInfo:
+    # Human-readable name shown in the UI.
     name: str
+    # Full systemd unit name, e.g. "pkg-ActiveBackup-logd.service".
+    unit: str = ""
     running: bool = False
     description: str = ""
 
@@ -65,7 +68,14 @@ class ServicesCollector(Collector[ServicesSnapshot]):
             # smbd shows as smbd, not pkg-smbd.
             display = name[4:] if name.startswith("pkg-") else name
             running = sub_state == "running"
-            out.append(ServiceInfo(name=display, running=running, description=desc.strip().strip('"')))
+            out.append(
+                ServiceInfo(
+                    name=display,
+                    unit=unit,
+                    running=running,
+                    description=desc.strip().strip('"'),
+                )
+            )
         # Sort: interesting services first, then running ones, then the rest.
         def sort_key(s: ServiceInfo) -> tuple:
             interesting = 0 if s.name in INTERESTING else 1
