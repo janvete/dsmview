@@ -50,6 +50,7 @@ Services tab:
   s          start
   S          stop
   R          restart
+  (or use the Start / Stop / Restart buttons)
 ```
 
 ## Requirements

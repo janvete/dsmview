@@ -98,6 +98,8 @@ class DsmviewApp(App):
 
     def action_switch_tab(self, tab_id: str) -> None:
         self.query_one(TabbedContent).active = tab_id
+        if tab_id == "services":
+            self.services_tab.focus_table()
 
     def action_filter(self, name: str) -> None:
         self.query_one(TabbedContent).active = "logs"
